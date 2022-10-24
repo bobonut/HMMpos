@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import hmm
 import re
+import json
 
 
 # Press the green button in the gutter to run the script.
@@ -68,27 +69,22 @@ if __name__ == '__main__':
     bigramDictionary = {}
     totalTransition = {}
     start = dict.fromkeys(probs.columns, 1)
-    tagsCount = {}
+    outputCount = {}
+    tagCount = dict.fromkeys(probs.columns, 0)
     delta = 1
     for i in range(len(lines)-1):
         first = re.split('\t|\s{3}|\n', lines[i][0])
-        # try:
         start[first[1]] += 1
-        # except KeyError:
-        #     start[first[1]] = 1
         for j in range(len(lines[i])-1):
             tPrev = re.split('\t|\s{3}|\n', lines[i][j])
-            check = tagsCount.get(tPrev[1], {}).get(tPrev[0], False)
+            tagCount[tPrev[1]] += 1
+            check = outputCount.get(tPrev[1], {}).get(tPrev[0], False)
             if check:
-                tagsCount[tPrev[1]][tPrev[0]] += 1
-            elif type(tagsCount.get(tPrev[1], False)) == bool:
-                tagsCount[tPrev[1]] = {tPrev[0]:1}
-            # else:
-            #     tagsCount[]
-            # try:
-            #     tagsCount[tPrev[0]][tPrev[1]] += 1
-            # except KeyError:
-            #     tagsCount[tPrev[0]] = 1
+                outputCount[tPrev[1]][tPrev[0]] += 1
+            elif type(outputCount.get(tPrev[1], False)) == bool:
+                outputCount[tPrev[1]] = {tPrev[0]:1}
+            elif type(outputCount.get(tPrev[1], {}).get(tPrev[0], False)) == bool:
+                outputCount[tPrev[1]][tPrev[0]] = 1
             t = re.split('\t|\s{3}|\n', lines[i][j+1])
             Last = bigramDictionary.get(tPrev[0], {}).get(t[0], {}).get(tPrev[1], {}).get(t[1],False)
             if Last:
@@ -117,8 +113,16 @@ if __name__ == '__main__':
                     bigramDictionary[i][j][k][l] = (bigramDictionary[i][j][k][l]+delta)/(totalTransition[i]+delta*(probs.shape[0]+1))
     
     
-    # for i in tagsCount:
-    #     tagsCount[i] = (tagsCount[i]+delta)/          
+    for i in outputCount:
+        for j in outputCount[i]:
+            outputCount[i][j] = (outputCount[i][j]+delta)/(tagCount[i]+delta*(len(totalTransition)+1))
+            
+    with open('./output/trans_probs.txt', 'w', encoding='utf-8') as trans:
+        trans.writelines(json.dumps(bigramDictionary))
+        trans.writelines(json.dumps(start))
+    with open('./output/output_probs.txt', 'w', encoding='utf-8') as output:
+        output.writelines(json.dumps(outputCount))
+
             # try:
             #     # bigramDictionary[tPrev[0]][t[0]][tPrev[1]][t[1]] += 1
             #     x = bigramDictionary.get(tPrev[0], {}).get(t[0], {}).get(tPrev[1], {}).get(t[1], 1)

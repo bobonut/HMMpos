@@ -77,7 +77,73 @@ def naive_predict2(in_output_probs_filename, in_train_filename, in_test_filename
                         continue
 
 def trainDistributions():
-    data = open(dataDir+in_test_filename, encoding='utf-8', newline='\n')
+    lines =[[]]
+    n=0
+    train = open(r'./data/twitter_train.txt', encoding='utf-8', newline='\n')
+    probs = pd.read_csv(r'./output/naive_output_probs.txt', index_col=0, skipfooter=25)
+    for i in train.readlines():
+        if i=='\n':
+            lines.append([])
+            n+=1
+        else:
+            lines[n].append(i)
+    bigramDictionary = {}
+    totalTransition = {}
+    start = dict.fromkeys(probs.columns, 1)
+    outputCount = {}
+    tagCount = dict.fromkeys(probs.columns, 0)
+    delta = 1
+    for i in range(len(lines)-1):
+        first = re.split('\t|\s{3}|\n', lines[i][0])
+        start[first[1]] += 1
+        for j in range(len(lines[i])-1):
+            tPrev = re.split('\t|\s{3}|\n', lines[i][j])
+            tagCount[tPrev[1]] += 1
+            check = outputCount.get(tPrev[1], {}).get(tPrev[0], False)
+            if check:
+                outputCount[tPrev[1]][tPrev[0]] += 1
+            elif type(outputCount.get(tPrev[1], False)) == bool:
+                outputCount[tPrev[1]] = {tPrev[0]:1}
+            elif type(outputCount.get(tPrev[1], {}).get(tPrev[0], False)) == bool:
+                outputCount[tPrev[1]][tPrev[0]] = 1
+            t = re.split('\t|\s{3}|\n', lines[i][j+1])
+            Last = bigramDictionary.get(tPrev[0], {}).get(t[0], {}).get(tPrev[1], {}).get(t[1],False)
+            if Last:
+                bigramDictionary[tPrev[0]][t[0]][tPrev[1]][t[1]] += 1
+                totalTransition[tPrev[0]] += 1
+            elif type(bigramDictionary.get(tPrev[0], False))==bool:
+                bigramDictionary[tPrev[0]] = {}
+                bigramDictionary[tPrev[0]][t[0]] = {}
+                bigramDictionary[tPrev[0]][t[0]][tPrev[1]] = {}
+                bigramDictionary[tPrev[0]][t[0]][tPrev[1]][t[1]] = 1
+                totalTransition[tPrev[0]] = 1
+            elif type(bigramDictionary.get(tPrev[0], {}).get(t[0], False))==bool:
+                bigramDictionary[tPrev[0]][t[0]] = {}
+                bigramDictionary[tPrev[0]][t[0]][tPrev[1]] = {}
+                bigramDictionary[tPrev[0]][t[0]][tPrev[1]][t[1]] = 1
+            elif type(bigramDictionary.get(tPrev[0], {}).get(t[0], {}).get(tPrev[1], False))==bool:
+                bigramDictionary[tPrev[0]][t[0]][tPrev[1]] = {}
+                bigramDictionary[tPrev[0]][t[0]][tPrev[1]][t[1]] = 1
+            else:
+                bigramDictionary[tPrev[0]][t[0]][tPrev[1]][t[1]] = 1
+                
+    for i in bigramDictionary:
+        for j in bigramDictionary[i]:
+            for k in bigramDictionary[i][j]:
+                for l in bigramDictionary[i][j][k]:
+                    bigramDictionary[i][j][k][l] = (bigramDictionary[i][j][k][l]+delta)/(totalTransition[i]+delta*(probs.shape[0]+1))
+    
+    
+    for i in outputCount:
+        for j in outputCount[i]:
+            outputCount[i][j] = (outputCount[i][j]+delta)/(tagCount[i]+delta*(len(totalTransition)+1))
+            
+    with open('./output/trans_probs.txt', 'w', encoding='utf-8') as trans:
+        trans.writelines(json.dumps(bigramDictionary))
+        trans.writelines(json.dumps(start))
+    with open('./output/output_probs.txt', 'w', encoding='utf-8') as output:
+        output.writelines(json.dumps(outputCount))
+        
 def viterbi_predict(in_tags_filename, in_trans_probs_filename, in_output_probs_filename, in_test_filename,
                     out_predictions_filename):
     pass
