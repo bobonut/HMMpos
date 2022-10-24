@@ -1,11 +1,11 @@
 # Implement the six functions below
 import numpy as np
 import pandas as pd
-import os
 import re
+import json
 
 def naiveTrain():
-    tags = np.loadtxt("./data/twitter_tags.txt", dtype=object)
+    # tags = np.loadtxt("./data/twitter_tags.txt", dtype=object)
     df = pd.read_csv("./data/twitter_train.txt", sep="\t", names=["word", "tag"], dtype=str)
     df["Count"] = 1
     pivot = pd.pivot_table(df, values="Count", index="word", columns="tag", aggfunc=np.sum).fillna(0)
@@ -146,6 +146,8 @@ def trainDistributions():
         
 def viterbi_predict(in_tags_filename, in_trans_probs_filename, in_output_probs_filename, in_test_filename,
                     out_predictions_filename):
+    dataDir = './data/'
+    outputDir = './output/'
     pass
 
 def viterbi_predict2(in_tags_filename, in_trans_probs_filename, in_output_probs_filename, in_test_filename,
