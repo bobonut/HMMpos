@@ -76,7 +76,7 @@ def naive_predict2(in_output_probs_filename, in_train_filename, in_test_filename
                         output.write(unseenTag+'\n')
                         continue
 
-def trainTransitionandOutput():
+def trainDistributions():
     data = open(dataDir+in_test_filename, encoding='utf-8', newline='\n')
 def viterbi_predict(in_tags_filename, in_trans_probs_filename, in_output_probs_filename, in_test_filename,
                     out_predictions_filename):

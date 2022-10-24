@@ -68,6 +68,7 @@ if __name__ == '__main__':
     bigramDictionary = {}
     totalTransition = {}
     start = dict.fromkeys(probs.columns, 1)
+    tagsCount = {}
     delta = 1
     for i in range(len(lines)-1):
         first = re.split('\t|\s{3}|\n', lines[i][0])
@@ -77,9 +78,18 @@ if __name__ == '__main__':
         #     start[first[1]] = 1
         for j in range(len(lines[i])-1):
             tPrev = re.split('\t|\s{3}|\n', lines[i][j])
+            check = tagsCount.get(tPrev[1], {}).get(tPrev[0], False)
+            if check:
+                tagsCount[tPrev[1]][tPrev[0]] += 1
+            elif type(tagsCount.get(tPrev[1], False)) == bool:
+                tagsCount[tPrev[1]] = {tPrev[0]:1}
+            # else:
+            #     tagsCount[]
+            # try:
+            #     tagsCount[tPrev[0]][tPrev[1]] += 1
+            # except KeyError:
+            #     tagsCount[tPrev[0]] = 1
             t = re.split('\t|\s{3}|\n', lines[i][j+1])
-            # First = bigramDictionary.get(tPrev[0], False)
-            # Second = 
             Last = bigramDictionary.get(tPrev[0], {}).get(t[0], {}).get(tPrev[1], {}).get(t[1],False)
             if Last:
                 bigramDictionary[tPrev[0]][t[0]][tPrev[1]][t[1]] += 1
@@ -105,9 +115,10 @@ if __name__ == '__main__':
             for k in bigramDictionary[i][j]:
                 for l in bigramDictionary[i][j][k]:
                     bigramDictionary[i][j][k][l] = (bigramDictionary[i][j][k][l]+delta)/(totalTransition[i]+delta*(probs.shape[0]+1))
-        
-        
-                
+    
+    
+    # for i in tagsCount:
+    #     tagsCount[i] = (tagsCount[i]+delta)/          
             # try:
             #     # bigramDictionary[tPrev[0]][t[0]][tPrev[1]][t[1]] += 1
             #     x = bigramDictionary.get(tPrev[0], {}).get(t[0], {}).get(tPrev[1], {}).get(t[1], 1)
