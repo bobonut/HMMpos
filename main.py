@@ -70,7 +70,6 @@ if __name__ == '__main__':
     start = dict.fromkeys(probs.columns, 1)
     delta = 1
     for i in range(len(lines)-1):
-        print(i)
         first = re.split('\t|\s{3}|\n', lines[i][0])
         # try:
         start[first[1]] += 1
