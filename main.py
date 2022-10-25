@@ -62,7 +62,33 @@ def vertibipredict(in_tags_filename, in_trans_probs_filename, in_output_probs_fi
     transDist = read_trans_prob_file('./output/trans_probs.txt')
     outDist = open_file_into_dic('./output/output_probs.txt')
 
+# def mle_output(train_file):
+#     sigma = 1
+#     output_prob_dic = {}
+    
+#     # Get the twitter_train_lst out from the train_file
+#     twitter_train_lst = open_file_mle_output(train_file)
+#     #print(twitter_train_lst)
+    
+#     # Count the number of unique words
+#     unique_words = get_unique_words(twitter_train_lst)
+#     #print(unique_words)
+    
+#     # Dict of tags and their respective counts
+#     tag_counts_dic = get_tag_count(twitter_train_lst)
+#     #print(tag_counts_dic)
+    
+#     # Dict of Dict for tokens and their respective tag counts
+#     token_tag_counts_dic = get_token_tag_count(twitter_train_lst)
 
+#     for token, tag_dic in token_tag_counts_dic.items():
+
+#         for tag, count in tag_dic.items():
+#             prob = (count + sigma)/(tag_counts_dic[tag] + sigma * (unique_words + 1))
+#             output_prob_dic[token + " " + tag] = str(prob)
+#     unseenProb = (1 + sigma)/(tag_counts_dic[tag] + sigma * (unique_words + 1))
+#     output_prob_dic["_UNSEEN_"+" "
+#     return output_prob_dic
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
@@ -83,10 +109,45 @@ if __name__ == '__main__':
             lines.append([])
             n+=1
         else:
-            lines[n].append(i)
+            lines[n].append(i[:-1])
+    # full up transition distribution table
+    for i in tags:
+        for j in tags:
+            transDist[i][j] = transDist.get(i).get(j, 0)
     # initialization
-    
-    
+    output = [[-1] for i in range(len(lines)-1)] #initialise backpointer list
+    for i in range(len(lines)-1):
+        mat = np.zeros((len(tags), len(lines[i]))) #generate the vertibri matrix
+        for j in range(len(tags)):
+            try:
+                mat[j,0] = transDist['START'][tags[j]] * outDist[lines[i][0]][tags[j]]
+            except KeyError:
+                mat[j,0] = transDist['START'][tags[j]] * outDist['_UNSEEN_'][tags[j]]
+    # propogation
+        for k in range(1, len(lines[i])):
+            print(k)
+            maxIndex = np.argmax(mat[:,k-1])
+            output[i].append(maxIndex)
+            maxProb = mat[maxIndex, k-1]
+            maxTag = tags[maxIndex]
+            for j in range(len(tags)):
+                print(j)
+                try:
+                    mat[j,k] = maxProb * transDist[maxTag][tags[j]] * outDist[lines[i][k]][tags[j]]
+                except KeyError:
+                    mat[j,k] = maxProb * transDist[maxTag][tags[j]] * outDist['_UNSEEN_'][tags[j]]
+        lastObv = np.argmax(mat[:,len(lines[i])-1])
+        output[i].append(lastObv)
+        
+    # output to file 
+    with open('./output/viterbi_predict.txt', 'w', encoding='utf-8') as answer:
+        for out in output:
+            for i in range(1,len(out)):
+                answer.write(tags[out[i]]+'\n')
+            answer.write('\n')
+            
+            
+            
         
     # tags = np.loadtxt("./data/twitter_tags.txt", dtype=object)
     # df = pd.read_csv("./data/twitter_train.txt", sep="\t", names=["word", "tag"], dtype=str)

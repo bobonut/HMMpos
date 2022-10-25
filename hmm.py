@@ -80,7 +80,9 @@ def trainDistributions():
     lines =[[]]
     n=0
     train = open(r'./data/twitter_train.txt', encoding='utf-8', newline='\n')
-    probs = pd.read_csv(r'./output/naive_output_probs.txt', index_col=0, skipfooter=25)
+    probs = open(r'./data/twitter_tags.txt', encoding='utf-8', newline='\n')
+    tags = [i[0] for i in probs.readlines()]
+    # probs = pd.read_csv(r'./output/naive_output_probs.txt', index_col=0, skipfooter=25)
     for i in train.readlines():
         if i=='\n':
             lines.append([])
@@ -89,9 +91,9 @@ def trainDistributions():
             lines[n].append(i)
     bigramDictionary = {}
     totalTransition = {}
-    start = dict.fromkeys(probs.columns, 1)
+    start = dict.fromkeys(tags, 0)
     outputCount = {}
-    tagCount = dict.fromkeys(probs.columns, 0)
+    tagCount = dict.fromkeys(tags, 0)
     delta = 1
     for i in range(len(lines)-1):
         first = re.split('\t|\s{3}|\n', lines[i][0])
@@ -131,24 +133,106 @@ def trainDistributions():
         for j in bigramDictionary[i]:
             for k in bigramDictionary[i][j]:
                 for l in bigramDictionary[i][j][k]:
-                    bigramDictionary[i][j][k][l] = (bigramDictionary[i][j][k][l]+delta)/(totalTransition[i]+delta*(probs.shape[0]+1))
+                    bigramDictionary[i][j][k][l] = (bigramDictionary[i][j][k][l]+delta)/(totalTransition[i]+delta*(len(totalTransition)+1))
     
     
     for i in outputCount:
         for j in outputCount[i]:
             outputCount[i][j] = (outputCount[i][j]+delta)/(tagCount[i]+delta*(len(totalTransition)+1))
-            
+    for i in start:
+        start[i] = start[i]/(len(lines)-1)
+        
     with open('./output/trans_probs.txt', 'w', encoding='utf-8') as trans:
         trans.writelines(json.dumps(bigramDictionary))
         trans.writelines(json.dumps(start))
     with open('./output/output_probs.txt', 'w', encoding='utf-8') as output:
         output.writelines(json.dumps(outputCount))
+
+def read_trans_prob_file(file):
+    output_dic = {}
+    # Output1: dictionary of tag: prob of transitioning to all other tags
+    with open(file, encoding = 'utf-8') as curr:
+        for line in curr.readlines():
+            tag_ij, sep, trans_prob = line.strip().partition(':')
+            tag_i, sep, tag_j = tag_ij.partition(' ')
+            if tag_i not in output_dic.keys():
+                output_dic[tag_i] = {}
+                output_dic[tag_i][tag_j.strip()] = float(trans_prob.strip())
+            else:
+                output_dic[tag_i][tag_j.strip()] = float(trans_prob.strip())
+    return output_dic
+
+def open_file_into_dic(file):
+    output_dic = {}
+    token_tags = []
+    output_probs_lst = []
+    with open(file, encoding = 'utf-8') as curr:
+        for line in curr.readlines():
+            token, tag, prob = line.split(" ")
+            if token not in output_dic.keys():
+                output_dic[token] = {}
+                output_dic[token][tag] = float(prob.replace("\n", ""))
+            else:
+                output_dic[token][tag] = float(prob.replace("\n", ""))
+    return output_dic
         
 def viterbi_predict(in_tags_filename, in_trans_probs_filename, in_output_probs_filename, in_test_filename,
                     out_predictions_filename):
     dataDir = './data/'
     outputDir = './output/'
-    pass
+    
+    transDist = read_trans_prob_file(outputDir+in_trans_probs_filename)
+    outDist = open_file_into_dic(outputDir+in_output_probs_filename)
+    
+    # to get all the tags
+    with open(dataDir+in_tags_filename, encoding='utf-8', newline='\n') as tagFile:
+        tags = [i[0] for i in tagFile.readlines()]
+        
+    # to get all test data
+    lines =[[]]
+    n=0
+    train = open(dataDir+in_test_filename, encoding='utf-8', newline='\n')
+    for i in train.readlines():
+        if i=='\n':
+            lines.append([])
+            n+=1
+        else:
+            lines[n].append(i[:-1])
+    # full up transition distribution table
+    for i in tags:
+        for j in tags:
+            transDist[i][j] = transDist.get(i).get(j, 0)
+    # initialization
+    output = [[-1] for i in range(len(lines)-1)] #initialise backpointer list
+    for i in range(len(lines)-1):
+        mat = np.zeros((len(tags), len(lines[i]))) #generate the vertibri matrix
+        for j in range(len(tags)):
+            try:
+                mat[j,0] = transDist['START'][tags[j]] * outDist[lines[i][0]][tags[j]]
+            except KeyError:
+                mat[j,0] = transDist['START'][tags[j]] * outDist['_UNSEEN_'][tags[j]]
+    # propogation
+        for k in range(1, len(lines[i])):
+            print(k)
+            maxIndex = np.argmax(mat[:,k-1])
+            output[i].append(maxIndex)
+            maxProb = mat[maxIndex, k-1]
+            maxTag = tags[maxIndex]
+            for j in range(len(tags)):
+                print(j)
+                try:
+                    mat[j,k] = maxProb * transDist[maxTag][tags[j]] * outDist[lines[i][k]][tags[j]]
+                except KeyError:
+                    mat[j,k] = maxProb * transDist[maxTag][tags[j]] * outDist['_UNSEEN_'][tags[j]]
+        lastObv = np.argmax(mat[:,len(lines[i])-1])
+        output[i].append(lastObv)
+        
+    # output to file 
+    with open(outputDir+out_predictions_filename, 'w', encoding='utf-8') as answer:
+        for out in output:
+            for i in range(1,len(out)):
+                answer.write(tags[out[i]]+'\n')
+            answer.write('\n')
 
 def viterbi_predict2(in_tags_filename, in_trans_probs_filename, in_output_probs_filename, in_test_filename,
                      out_predictions_filename):
@@ -289,6 +373,7 @@ def main():
     naive_predict2('naive_output_probs.txt', 'twitter_train.txt', 'twitter_dev_no_tag.txt', 'naive_predictions2.txt' )
     print(evaluate('./output/naive_predictions.txt', './data/twitter_dev_ans.txt'))
     print(evaluate('./output/naive_predictions2.txt', './data/twitter_dev_ans.txt'))
+    print(evaluate('./output/viterbi_predict.txt', './data/twitter_dev_ans.txt'))
     
 if __name__ == '__main__':
     main()
